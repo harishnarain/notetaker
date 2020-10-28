@@ -7,13 +7,17 @@ const fs = require("fs");
 
 // Sets up the Express App
 // =============================================================
-var app = express();
-var PORT = process.env.PORT || 3000;
+const app = express();
+const PORT = process.env.PORT || 3000;
 
 // Sets up the Express app to handle data parsing
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static("public"));
+
+// Globals
+const db = `${__dirname}/db/db.json`;
+let notes = [];
 
 // Mock data
 const testNotes = [
@@ -29,23 +33,28 @@ const testNotes = [
   },
 ];
 
-// Notes
-const notes = [];
-
 // Functions
 // =============================================================
+const writeToDb = () => {
+  fs.writeFileSync(db, JSON.stringify(notes), "utf8");
+};
+
 const deleteNote = (id) => {
-  testNotes.splice(
-    testNotes.findIndex((el) => el.id === id),
+  // delete note
+  notes.splice(
+    notes.findIndex((note) => note.id == id),
     1
   );
-  return testNotes;
+  writeToDb();
+
+  // return notes
+  return notes;
 };
 
 const generateId = () => {
   // Get all current ids
   const currentIds = [];
-  testNotes.forEach((note) => currentIds.push(note.id));
+  notes.forEach((note) => currentIds.push(note.id));
 
   // generate Id
   let newId = "";
@@ -61,17 +70,24 @@ const saveNote = (body) => {
   // add note
   const newNote = body;
   newNote.id = generateId();
-  testNotes.push(newNote);
+  notes.push(newNote);
+  writeToDb();
 
   // return notes
-  return testNotes;
+  return notes;
 };
 
 const getNotes = () => {
-  return fs.readFileSync(__dirname + "/db/db.json", "utf8", (err, data) => {
+  const temp = fs.readFileSync(db, "utf8", (err, data) => {
     if (err) throw err;
-    return data;
+    const updatedNotes = [];
+    JSON.parse(data).forEach((note) => {
+      updatedNotes.push(note);
+    });
+    return updatedNotes;
   });
+  notes = JSON.parse(temp);
+  return notes;
 };
 
 // Routes
@@ -79,7 +95,7 @@ const getNotes = () => {
 
 // Displays all notes
 app.get("/api/notes", (req, res) => {
-  return res.json(testNotes);
+  return res.json(getNotes());
 });
 
 // Delete note by id
@@ -101,6 +117,9 @@ app.get("/notes", (req, res) => {
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public/index.html"));
 });
+
+// Initialization
+getNotes();
 
 // Starts the server to begin listening
 // =============================================================
